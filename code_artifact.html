@@ -1,0 +1,2003 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitTrack Pro | متتبع التمارين والأوزان الاحترافي</title>
+    <!-- استيراد خط القاهرة العربي -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js للرسوم البيانية -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons للأيقونات -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Cairo', 'sans-serif'],
+                    },
+                    colors: {
+                        darkBg: '#000000',
+                        cardBg: '#121212',
+                        cardHover: '#1c1c1c',
+                        accent: '#dc2626', // أحمر رياضي جريء
+                        accentHover: '#ef4444',
+                        secondary: '#ffffff',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #000000;
+            color: #ffffff;
+            font-family: 'Cairo', sans-serif;
+            overflow-x: hidden;
+        }
+        /* تخصيص شريط التمرير بالأبيض والأسود والأحمر */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #000000;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #262626;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #dc2626;
+        }
+        /* تنسيق مدخل التاريخ في الوضع الداكن */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-black text-white selection:bg-red-600 selection:text-white">
+
+    <!-- رسالة إشعارات عائمة (Toast Notification) بديلة عن alert -->
+    <div id="toast-container" class="fixed bottom-5 left-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- الشريط العلوي (Navbar) -->
+    <header class="bg-black/95 backdrop-blur-md border-b border-neutral-800 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-red-600/15 p-2 rounded-xl border border-red-600/40 text-red-500">
+                    <i data-lucide="dumbbell" class="w-7 h-7"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                        FitTrack <span class="text-white text-xs font-bold bg-red-600 px-2.5 py-0.5 rounded-full">PRO</span>
+                    </h1>
+                    <p class="text-xs text-neutral-400 hidden sm:block">سجلك الرياضي الذكي لتتبع الأوزان والتطور</p>
+                </div>
+            </div>
+
+            <!-- أزرار التحكم بالبيانات -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <span id="auto-save-indicator" class="hidden lg:flex items-center gap-1.5 text-xs text-white bg-neutral-900 border border-neutral-800 px-2.5 py-1.5 rounded-xl transition-transform">
+                    <span class="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+                    <span>محفوظ تلقائياً</span>
+                </span>
+                <button onclick="loadDemoData()" title="تحميل بيانات تجريبية لشهر كامل" class="flex items-center gap-1.5 text-xs sm:text-sm bg-neutral-900 hover:bg-red-600 text-white border border-neutral-800 hover:border-red-600 px-3 py-2 rounded-xl transition">
+                    <i data-lucide="sparkles" class="w-4 h-4 text-red-500 group-hover:text-white"></i>
+                    <span class="hidden md:inline">بيانات شهر تجريبية</span>
+                </button>
+                <button onclick="exportData()" title="تصدير نسخة احتياطية JSON" class="flex items-center gap-1.5 text-xs sm:text-sm bg-neutral-900 hover:bg-neutral-800 text-white border border-neutral-800 px-3 py-2 rounded-xl transition">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">تصدير</span>
+                </button>
+                <label title="استيراد بيانات JSON" class="cursor-pointer flex items-center gap-1.5 text-xs sm:text-sm bg-neutral-900 hover:bg-neutral-800 text-white border border-neutral-800 px-3 py-2 rounded-xl transition">
+                    <i data-lucide="upload" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">استيراد</span>
+                    <input type="file" id="import-file" accept=".json" class="hidden" onchange="importData(event)">
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <!-- المحتوى الرئيسي -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- القسم الأول: القياسات الجسدية ومؤشر كتلة الجسم (BMI) -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- بطاقة تحديث الوزن والطول -->
+            <div class="lg:col-span-5 bg-[#121212] border border-neutral-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i data-lucide="scale" class="w-5 h-5 text-red-500"></i>
+                            القياسات الجسدية لليوم المختار
+                        </h2>
+                        <span id="last-weight-date" class="text-xs text-neutral-300 bg-neutral-900 border border-neutral-800 px-2.5 py-1 rounded-lg">اليوم</span>
+                    </div>
+
+                    <form id="body-metrics-form" onsubmit="saveBodyMetrics(event)" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-neutral-400 mb-1.5">الوزن الحالي (كجم)</label>
+                                <div class="relative">
+                                    <input type="number" id="input-weight" step="0.1" min="20" max="350" required placeholder="75.5"
+                                        class="w-full bg-black border border-neutral-800 focus:border-red-600 focus:ring-1 focus:ring-red-600 rounded-xl px-4 py-2.5 text-white font-bold text-lg outline-none transition">
+                                    <span class="absolute left-3 top-3 text-xs text-neutral-400">كجم</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <label class="text-xs font-medium text-neutral-400">الطول الثابت (سم)</label>
+                                    <button type="button" id="reset-height-btn" onclick="resetDefaultHeight()" class="hidden text-[11px] text-red-500 hover:text-red-400 underline">
+                                        إعادة للثابت (170)
+                                    </button>
+                                </div>
+                                <div class="relative">
+                                    <input type="number" id="input-height" step="0.5" min="100" max="250" value="170" oninput="checkHeightChanged()" required placeholder="170"
+                                        class="w-full bg-black border border-neutral-800 focus:border-red-600 focus:ring-1 focus:ring-red-600 rounded-xl px-4 py-2.5 text-white font-bold text-lg outline-none transition">
+                                    <span class="absolute left-3 top-3 text-xs text-neutral-400">سم</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-red-950/50">
+                            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                            حفظ وتحديث القياسات
+                        </button>
+                    </form>
+                </div>
+
+                <!-- سجل سريع لآخر قراءات الوزن -->
+                <div class="mt-5 pt-4 border-t border-neutral-800">
+                    <div class="flex items-center justify-between text-xs text-neutral-400 mb-2">
+                        <span>آخر التحديثات المسجلة:</span>
+                        <button onclick="clearWeightHistory()" class="text-red-500 hover:text-red-400 hover:underline">مسح السجل</button>
+                    </div>
+                    <div id="weight-history-pills" class="flex gap-2 overflow-x-auto pb-1">
+                        <!-- يتم تعبئتها بواسطة JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- بطاقات الإحصائيات السريعة ومؤشر BMI -->
+            <div class="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- بطاقة مؤشر كتلة الجسم BMI -->
+                <div class="bg-[#121212] border border-neutral-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between relative overflow-hidden">
+                    <div class="absolute -left-6 -top-6 w-24 h-24 bg-red-600/15 rounded-full blur-xl"></div>
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-neutral-400 font-medium">مؤشر كتلة الجسم (BMI)</span>
+                            <i data-lucide="activity" class="w-5 h-5 text-red-500"></i>
+                        </div>
+                        <div class="mt-3 flex items-baseline gap-3">
+                            <span id="bmi-value" class="text-4xl font-extrabold text-white">--</span>
+                            <span id="bmi-badge" class="text-xs font-bold px-2.5 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-neutral-300">بانتظار البيانات</span>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <!-- شريط توضيحي لمؤشر BMI باللون الأبيض والأحمر والرمادي -->
+                        <div class="w-full h-2.5 bg-neutral-900 rounded-full overflow-hidden flex border border-neutral-800">
+                            <div class="bg-neutral-500 h-full w-1/4" title="نقص وزن (< 18.5)"></div>
+                            <div class="bg-white h-full w-1/4" title="وزن مثالي (18.5 - 24.9)"></div>
+                            <div class="bg-red-500 h-full w-1/4" title="زيادة وزن (25 - 29.9)"></div>
+                            <div class="bg-red-700 h-full w-1/4" title="سمنة (30+)"></div>
+                        </div>
+                        <div class="flex justify-between text-[10px] text-neutral-400 mt-1">
+                            <span>نحافة</span>
+                            <span class="text-white font-semibold">مثالي</span>
+                            <span class="text-red-400">زيادة</span>
+                            <span class="text-red-600 font-semibold">سمنة</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- بطاقة ملخص إنجاز اليوم -->
+                <div class="bg-[#121212] border border-neutral-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between relative overflow-hidden">
+                    <div class="absolute -left-6 -top-6 w-24 h-24 bg-white/5 rounded-full blur-xl"></div>
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-neutral-400 font-medium">ملخص تمارين اليوم المختار</span>
+                            <i data-lucide="flame" class="w-5 h-5 text-red-500"></i>
+                        </div>
+                        <div class="mt-3 grid grid-cols-2 gap-2">
+                            <div class="bg-black p-3 rounded-xl border border-neutral-800">
+                                <span class="text-xs text-neutral-400 block">التمارين المنجزة</span>
+                                <span id="daily-completed-count" class="text-2xl font-extrabold text-white">0 / 0</span>
+                            </div>
+                            <div class="bg-black p-3 rounded-xl border border-neutral-800">
+                                <span class="text-xs text-neutral-400 block">إجمالي الحجم (Volume)</span>
+                                <span id="daily-total-volume" class="text-xl font-extrabold text-red-500">0 <small class="text-xs font-normal text-neutral-400">كجم</small></span>
+                            </div>
+                        </div>
+                    </div>
+                    <p id="daily-motivation" class="text-xs text-neutral-400 mt-3 flex items-center gap-1.5">
+                        <i data-lucide="trophy" class="w-4 h-4 text-red-500 shrink-0"></i>
+                        <span>ابدأ بإضافة تمارينك اليومية لتتبع تقدمك!</span>
+                    </p>
+                </div>
+
+                <!-- بطاقة الأرقام القياسية الشخصية (PRs) -->
+                <div class="sm:col-span-2 bg-[#121212] border border-neutral-800 rounded-2xl p-4 shadow-lg">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i data-lucide="award" class="w-4 h-4 text-red-500"></i>
+                            أعلى الأوزان المسجلة (Personal Records - PR)
+                        </h3>
+                        <span class="text-xs text-neutral-400">أقوى أداء لك في كل تمرين</span>
+                    </div>
+                    <div id="pr-list" class="flex gap-3 overflow-x-auto pb-1">
+                        <span class="text-xs text-neutral-500">لا توجد أرقام قياسية مسجلة بعد.</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- القسم الثاني: سجل التمارين اليومي التفاعلي ومكتبة تمارين الحديد -->
+        <section class="bg-[#121212] border border-neutral-800 rounded-2xl p-5 sm:p-6 shadow-lg">
+            <!-- شريط التحكم بالتاريخ والعنوان -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
+                <div>
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="calendar-check" class="w-6 h-6 text-red-500"></i>
+                        جدول التمارين اليومي وموسوعة الحديد
+                    </h2>
+                    <p class="text-xs text-neutral-400 mt-0.5">اختر اليوم، تصفح التمارين حسب العضلة أو ابحث بالاسم وسجل أوزانك</p>
+                </div>
+
+                <!-- منتقي التاريخ مع أزرار التنقل -->
+                <div class="flex items-center gap-2 bg-black p-1.5 rounded-xl border border-neutral-800 self-start md:self-auto">
+                    <button onclick="changeDate(-1)" title="اليوم السابق" class="p-2 hover:bg-neutral-900 rounded-lg text-neutral-300 hover:text-white transition">
+                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                    </button>
+                    <input type="date" id="workout-date" onchange="onDateChange()" class="bg-transparent text-white font-bold text-sm px-2 outline-none cursor-pointer">
+                    <button onclick="changeDate(1)" title="اليوم التالي" class="p-2 hover:bg-neutral-900 rounded-lg text-neutral-300 hover:text-white transition">
+                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                    </button>
+                    <button onclick="setToday()" class="text-xs bg-red-600 text-white hover:bg-red-500 font-bold px-3 py-1.5 rounded-lg transition">
+                        اليوم
+                    </button>
+                </div>
+            </div>
+
+            <!-- شريط الأيام السريع (يوضح الأيام النشطة بنقطة حمراء) -->
+            <div class="mt-4">
+                <div class="flex items-center justify-between text-xs text-neutral-400 mb-2">
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-red-600 inline-block"></span>
+                        سجل الأيام النشطة (آخر 14 يوماً حول التاريخ المختار):
+                    </span>
+                    <span id="active-days-badge" class="text-red-500 font-bold">0 أيام تدريب مسجلة</span>
+                </div>
+                <div id="days-ribbon" class="flex gap-2 overflow-x-auto pb-2">
+                    <!-- يتم توليده ديناميكياً بواسطة JS -->
+                </div>
+            </div>
+
+            <!-- شريط التصفية السريعة لتمارين الحديد حسب العضلة -->
+            <div class="mt-4 pt-4 border-t border-neutral-800">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                        <i data-lucide="layers" class="w-4 h-4 text-red-500"></i>
+                        تصفية تمارين الحديد حسب العضلة:
+                    </span>
+                    <span id="library-count-badge" class="text-[11px] text-neutral-400">49 تمرين متاح</span>
+                </div>
+                <div id="muscle-filter-tabs" class="flex gap-2 overflow-x-auto pb-2">
+                    <button type="button" onclick="selectMuscleFilter('الكل')" data-muscle="الكل" class="muscle-tab shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-red-600 text-white border border-red-600 transition">الكل</button>
+                    <button type="button" onclick="selectMuscleFilter('صدر')" data-muscle="صدر" class="muscle-tab shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-black text-neutral-300 hover:bg-neutral-900 hover:text-white border border-neutral-800 transition">الصدر (Chest)</button>
+                    <button type="button" onclick="selectMuscleFilter('ظهر')" data-muscle="ظهر" class="muscle-tab shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-black text-neutral-300 hover:bg-neutral-900 hover:text-white border border-neutral-800 transition">الظهر (Back)</button>
+                    <button type="button" onclick="selectMuscleFilter('أكتاف')" data-muscle="أكتاف" class="muscle-tab shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-black text-neutral-300 hover:bg-neutral-900 hover:text-white border border-neutral-800 transition">الأكتاف (Shoulders)</button>
+                    <button type="button" onclick="selectMuscleFilter('ذراعين')" data-muscle="ذراعين" class="muscle-tab shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-black text-neutral-300 hover:bg-neutral-900 hover:text-white border border-neutral-800 transition">الذراعين (Arms)</button>
+                    <button type="button" onclick="selectMuscleFilter('أرجل')" data-muscle="أرجل" class="muscle-tab shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-black text-neutral-300 hover:bg-neutral-900 hover:text-white border border-neutral-800 transition">الأرجل (Legs)</button>
+                    <button type="button" onclick="selectMuscleFilter('بطن')" data-muscle="بطن" class="muscle-tab shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-black text-neutral-300 hover:bg-neutral-900 hover:text-white border border-neutral-800 transition">البطن والكور (Core)</button>
+                </div>
+
+                <!-- بطاقات الاختيار السريع للتمارين المفلترة -->
+                <div id="quick-exercise-pills" class="flex gap-2 overflow-x-auto py-2">
+                    <!-- يتم تعبئتها ديناميكياً من قاعدة بيانات تمارين الحديد -->
+                </div>
+            </div>
+
+            <!-- نموذج إضافة تمرين جديد -->
+            <form id="add-workout-form" onsubmit="addWorkout(event)" class="mt-3 bg-black border border-neutral-800 p-4 rounded-xl">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+                    <!-- اسم التمرين مع البحث الذكي -->
+                    <div class="lg:col-span-4 relative">
+                        <label class="block text-xs text-neutral-400 mb-1">اسم التمرين (ابحث أو اختر أو اكتب يدوياً)</label>
+                        <div class="relative">
+                            <input type="text" id="ex-name" list="common-exercises" oninput="handleExerciseInput(this.value)" required placeholder="ابحث مثل: بنش برس، سكوات، سحب..."
+                                class="w-full bg-[#121212] border border-neutral-800 focus:border-red-600 rounded-xl pr-9 pl-3.5 py-2.5 text-sm text-white outline-none transition">
+                            <i data-lucide="search" class="w-4 h-4 text-neutral-400 absolute right-3 top-3"></i>
+                        </div>
+                        <!-- قائمة الإكمال التلقائي لجميع تمارين الحديد -->
+                        <datalist id="common-exercises"></datalist>
+                    </div>
+
+                    <!-- المجموعة العضلية -->
+                    <div class="lg:col-span-2">
+                        <label class="block text-xs text-neutral-400 mb-1">العضلة المستهدفة</label>
+                        <select id="ex-muscle" onchange="onFormMuscleChange(this.value)" class="w-full bg-[#121212] border border-neutral-800 focus:border-red-600 rounded-xl px-3 py-2.5 text-sm text-white outline-none transition">
+                            <option value="صدر">صدر (Chest)</option>
+                            <option value="ظهر">ظهر (Back)</option>
+                            <option value="أكتاف">أكتاف (Shoulders)</option>
+                            <option value="ذراعين">ذراعين (Arms)</option>
+                            <option value="أرجل">أرجل (Legs)</option>
+                            <option value="بطن">بطن وكور (Core)</option>
+                        </select>
+                    </div>
+
+                    <!-- الجولات -->
+                    <div class="lg:col-span-1">
+                        <label class="block text-xs text-neutral-400 mb-1">الجولات</label>
+                        <input type="number" id="ex-sets" min="1" max="50" value="4" required
+                            class="w-full bg-[#121212] border border-neutral-800 focus:border-red-600 rounded-xl px-3 py-2.5 text-sm text-white text-center font-bold outline-none transition">
+                    </div>
+
+                    <!-- التكرارات -->
+                    <div class="lg:col-span-1">
+                        <label class="block text-xs text-neutral-400 mb-1">التكرارات</label>
+                        <input type="number" id="ex-reps" min="1" max="500" value="10" required
+                            class="w-full bg-[#121212] border border-neutral-800 focus:border-red-600 rounded-xl px-3 py-2.5 text-sm text-white text-center font-bold outline-none transition">
+                    </div>
+
+                    <!-- الوزن بالكجم -->
+                    <div class="lg:col-span-2">
+                        <label class="block text-xs text-neutral-400 mb-1">الوزن (كجم)</label>
+                        <input type="number" id="ex-weight" step="0.5" min="0" max="1000" required placeholder="60"
+                            class="w-full bg-[#121212] border border-neutral-800 focus:border-red-600 rounded-xl px-3 py-2.5 text-sm text-red-500 text-center font-extrabold outline-none transition">
+                    </div>
+
+                    <!-- زر الإضافة -->
+                    <div class="lg:col-span-2">
+                        <button type="submit" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-1.5 shadow-md shadow-red-950/50">
+                            <i data-lucide="plus" class="w-5 h-5"></i>
+                            إضافة تمرين
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- قائمة التمارين لليوم المختار -->
+            <div class="mt-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-white">التمارين المسجلة في هذا اليوم</h3>
+                    <button onclick="copyPreviousDayWorkouts()" class="text-xs text-neutral-300 hover:text-red-500 flex items-center gap-1 transition">
+                        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                        نسخ تمارين آخر جلسة سابقة
+                    </button>
+                </div>
+
+                <div id="workouts-list" class="space-y-3">
+                    <!-- يتم عرض التمارين هنا ديناميكياً -->
+                </div>
+            </div>
+        </section>
+
+        <!-- القسم الثالث: التحليل اليومي والأسبوعي والشهري المتكامل -->
+        <section class="bg-[#121212] border border-neutral-800 rounded-2xl p-5 sm:p-6 shadow-lg">
+            <!-- رأس قسم التحليلات مع التبويبات -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-neutral-800">
+                <div>
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="pie-chart" class="w-6 h-6 text-red-500"></i>
+                        مركز التحليل الرياضي الشامل
+                    </h2>
+                    <p class="text-xs text-neutral-400 mt-0.5">تحليل دقيق للأحمال التدريبية، الالتزام، وتطور الأوزان والقياسات</p>
+                </div>
+
+                <!-- أزرار التبديل بين التحليل اليومي والأسبوعي والشهري -->
+                <div class="flex bg-black p-1 rounded-xl border border-neutral-800 self-start md:self-auto">
+                    <button onclick="switchAnalyticsTab('daily')" id="tab-btn-daily" class="analytics-tab-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-bold bg-red-600 text-white transition flex items-center gap-1.5">
+                        <i data-lucide="calendar" class="w-4 h-4"></i>
+                        التحليل اليومي
+                    </button>
+                    <button onclick="switchAnalyticsTab('weekly')" id="tab-btn-weekly" class="analytics-tab-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-bold text-neutral-400 hover:text-white transition flex items-center gap-1.5">
+                        <i data-lucide="calendar-days" class="w-4 h-4"></i>
+                        التحليل الأسبوعي
+                    </button>
+                    <button onclick="switchAnalyticsTab('monthly')" id="tab-btn-monthly" class="analytics-tab-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-bold text-neutral-400 hover:text-white transition flex items-center gap-1.5">
+                        <i data-lucide="calendar-range" class="w-4 h-4"></i>
+                        التحليل الشهري
+                    </button>
+                </div>
+            </div>
+
+            <!-- 1. محتوى التحليل اليومي (Daily Analytics) -->
+            <div id="analytics-panel-daily" class="mt-6 space-y-6">
+                <!-- بطاقات المؤشرات اليومية -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-black border border-neutral-800 p-4 rounded-xl">
+                        <span class="text-xs text-neutral-400 block">الحجم التدريبي لليوم</span>
+                        <span id="an-daily-volume" class="text-2xl font-extrabold text-red-500 mt-1 block">0 كجم</span>
+                        <span class="text-[11px] text-neutral-500">الجولات × التكرارات × الوزن</span>
+                    </div>
+                    <div class="bg-black border border-neutral-800 p-4 rounded-xl">
+                        <span class="text-xs text-neutral-400 block">إجمالي الجولات والتكرارات</span>
+                        <span id="an-daily-sets-reps" class="text-2xl font-extrabold text-white mt-1 block">0 جولة</span>
+                        <span id="an-daily-total-reps" class="text-[11px] text-neutral-400">0 تكرار كلي</span>
+                    </div>
+                    <div class="bg-black border border-neutral-800 p-4 rounded-xl">
+                        <span class="text-xs text-neutral-400 block">عدد التمارين</span>
+                        <span id="an-daily-exercises" class="text-2xl font-extrabold text-white mt-1 block">0</span>
+                        <span id="an-daily-muscles-count" class="text-[11px] text-neutral-400">0 مجموعات عضلية</span>
+                    </div>
+                    <div class="bg-black border border-neutral-800 p-4 rounded-xl">
+                        <span class="text-xs text-neutral-400 block">الوزن المسجل باليوم</span>
+                        <span id="an-daily-bodyweight" class="text-2xl font-extrabold text-red-500 mt-1 block">--</span>
+                        <span id="an-daily-bmi" class="text-[11px] text-neutral-400">BMI: --</span>
+                    </div>
+                </div>
+
+                <!-- توزيع الحمل حسب العضلة + مقارنة الأداء بالجلسة السابقة -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <!-- توزيع الحمل العضلي -->
+                    <div class="lg:col-span-5 bg-black border border-neutral-800 rounded-xl p-4">
+                        <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                            <i data-lucide="target" class="w-4 h-4 text-red-500"></i>
+                            توزيع الحمل التدريبي حسب العضلة
+                        </h3>
+                        <div id="an-daily-muscle-breakdown" class="space-y-3">
+                            <p class="text-xs text-neutral-500">لا توجد بيانات لعرض التوزيع العضلي في هذا اليوم.</p>
+                        </div>
+                    </div>
+
+                    <!-- مقارنة الأداء بالجلسة السابقة -->
+                    <div class="lg:col-span-7 bg-black border border-neutral-800 rounded-xl p-4">
+                        <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                            <i data-lucide="git-compare" class="w-4 h-4 text-red-500"></i>
+                            مقارنة أوزان اليوم بالجلسة السابقة (Progressive Overload)
+                        </h3>
+                        <div id="an-daily-comparison" class="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                            <p class="text-xs text-neutral-500">أضف تمارين لمقارنتها مع أدائك في الجلسات السابقة.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. محتوى التحليل الأسبوعي (Weekly Analytics) -->
+            <div id="analytics-panel-weekly" class="mt-6 space-y-6 hidden">
+                <div class="flex flex-wrap items-center justify-between gap-2 bg-black px-4 py-2.5 rounded-xl border border-neutral-800">
+                    <span class="text-xs text-neutral-300 font-bold">نطاق الأسبوع المحلل:</span>
+                    <span id="an-weekly-range" class="text-xs text-red-500 font-bold">--</span>
+                </div>
+
+                <!-- بطاقات المؤشرات الأسبوعية -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-black border border-neutral-800 p-4 rounded-xl">
+                        <span class="text-xs text-neutral-400 block">أيام التمرين في الأسبوع</span>
+                        <span id="an-weekly-days" class="text-2xl font-extrabold text-red-500 mt-1 block">0 / 7</span>
+                        <span class="text-[11px] text-neutral-500">أيام نشاط فعلي</span>
+                    </div>
+                    <div class="bg-black border border-neutral-800 p-4 rounded-xl">
+                        <span class="text-xs text-neutral-400 block">الحجم التدريبي الأسبوعي</span>
+                        <span id="an-weekly-volume" class="text-2xl font-extrabold text-white mt-1 block">0 كجم</span>
+                        <span class="text-[11px] text-neutral-500">إجمالي الأوزان المرفوعة</span>
+                    </div>
+                    <div class="bg-black border border-neutral-800 p-4 rounded-xl">
+                        <span class="text-xs text-neutral-400 block">إجمالي الجولات الأسبوعية</span>
+                        <span id="an-weekly-sets" class="text-2xl font-extrabold text-white mt-1 block">0 جولة</span>
+                        <span id="an-weekly-exercises" class="text-[11px] text-neutral-400">0 تمرين منجز</span>
+                    </div>
+                    <div class="bg-black border border-neutral-800 p-4 rounded-xl">
+                        <span class="text-xs text-neutral-400 block">نسبة الالتزام بالخطة</span>
+                        <span id="an-weekly-consistency" class="text-2xl font-extrabold text-red-500 mt-1 block">0%</span>
+                        <span class="text-[11px] text-neutral-500">بناءً على هدف 5 أيام/أسبوع</span>
+                    </div>
+                </div>
+
+                <!-- الرسم البياني للأعمدة لنشاط أيام الأسبوع -->
+                <div class="bg-black border border-neutral-800 rounded-xl p-4">
+                    <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                        <i data-lucide="bar-chart-2" class="w-4 h-4 text-red-500"></i>
+                        توزيع الحجم التدريبي خلال أيام الأسبوع (كجم)
+                    </h3>
+                    <div class="relative h-64 w-full">
+                        <canvas id="weeklyBarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. محتوى التحليل الشهري (Monthly Analytics) -->
+            <div id="analytics-panel-monthly" class="mt-6 space-y-6 hidden">
+                <div class="flex flex-wrap items-center justify-between gap-2 bg-black px-4 py-2.5 rounded-xl border border-neutral-800">
+                    <span class="text-xs text-neutral-300 font-bold">الشهر المحلل:</span>
+                    <span id="an-monthly-title" class="text-xs text-red-500 font-bold">--</span>
+                </div>
+
+                <!-- بطاقات المؤشرات الشهرية -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-black border border-neutral-800 p-4 rounded-xl">
+                        <span class="text-xs text-neutral-400 block">الحصص التدريبية بالشهر</span>
+                        <span id="an-monthly-sessions" class="text-2xl font-extrabold text-red-500 mt-1 block">0 حصة</span>
+                        <span class="text-[11px] text-neutral-500">أيام تدريب مسجلة</span>
+                    </div>
+                    <div class="bg-black border border-neutral-800 p-4 rounded-xl">
+                        <span class="text-xs text-neutral-400 block">الحجم التدريبي الشهري</span>
+                        <span id="an-monthly-volume" class="text-2xl font-extrabold text-white mt-1 block">0 كجم</span>
+                        <span class="text-[11px] text-neutral-500">مجموع أوزان الشهر</span>
+                    </div>
+                    <div class="bg-black border border-neutral-800 p-4 rounded-xl">
+                        <span class="text-xs text-neutral-400 block">التغير في وزن الجسم</span>
+                        <span id="an-monthly-weight-diff" class="text-2xl font-extrabold text-white mt-1 block">--</span>
+                        <span id="an-monthly-bmi-range" class="text-[11px] text-neutral-400">BMI: --</span>
+                    </div>
+                    <div class="bg-black border border-neutral-800 p-4 rounded-xl">
+                        <span class="text-xs text-neutral-400 block">أكثر عضلة تدريباً</span>
+                        <span id="an-monthly-top-muscle" class="text-2xl font-extrabold text-red-500 mt-1 block">--</span>
+                        <span id="an-monthly-top-muscle-sets" class="text-[11px] text-neutral-400">0 جولة خلال الشهر</span>
+                    </div>
+                </div>
+
+                <!-- أفضل الأرقام القياسية (PRs) وتوزيع العضلات خلال الشهر -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div class="lg:col-span-6 bg-black border border-neutral-800 rounded-xl p-4">
+                        <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                            <i data-lucide="medal" class="w-4 h-4 text-red-500"></i>
+                            أعلى الأوزان المحققة هذا الشهر (Top Monthly PRs)
+                        </h3>
+                        <div id="an-monthly-prs" class="space-y-2 max-h-60 overflow-y-auto">
+                            <p class="text-xs text-neutral-500">لا توجد أرقام مسجلة في هذا الشهر.</p>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-6 bg-black border border-neutral-800 rounded-xl p-4">
+                        <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                            <i data-lucide="activity" class="w-4 h-4 text-red-500"></i>
+                            توزيع الجولات حسب العضلات خلال الشهر
+                        </h3>
+                        <div id="an-monthly-muscles" class="space-y-2.5 max-h-60 overflow-y-auto">
+                            <p class="text-xs text-neutral-500">لا توجد بيانات عضلية لهذا الشهر.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- القسم الرابع: الرسوم البيانية لتطور الوزن والقوة -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- رسم بياني لتطور وزن الجسم -->
+            <div class="bg-[#121212] border border-neutral-800 rounded-2xl p-5 shadow-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <i data-lucide="trending-up" class="w-5 h-5 text-white"></i>
+                            منحنى تطور وزن الجسم (كجم)
+                        </h3>
+                        <p class="text-xs text-neutral-400">متابعة التغير في الوزن عبر الأيام والشهور</p>
+                    </div>
+                </div>
+                <div class="relative h-64 w-full">
+                    <canvas id="bodyWeightChart"></canvas>
+                </div>
+            </div>
+
+            <!-- رسم بياني لتطور أوزان التمارين -->
+            <div class="bg-[#121212] border border-neutral-800 rounded-2xl p-5 shadow-lg">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                    <div>
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <i data-lucide="bar-chart-3" class="w-5 h-5 text-red-500"></i>
+                            تطور الأوزان المرفوعة في التمارين
+                        </h3>
+                        <p class="text-xs text-neutral-400">اختر التمرين لمشاهدة تطور قوتك عبر الجلسات</p>
+                    </div>
+                    <select id="chart-exercise-select" onchange="updateExerciseChart()" class="bg-black border border-neutral-800 text-xs text-white rounded-xl px-3 py-2 outline-none focus:border-red-600">
+                        <option value="">اختر تمريناً...</option>
+                    </select>
+                </div>
+                <div class="relative h-64 w-full">
+                    <canvas id="exerciseProgressChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- نافذة تعديل تمرين (Modal) -->
+    <div id="edit-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-[#121212] border border-neutral-700 rounded-2xl max-w-md w-full p-6 shadow-2xl transform transition-all">
+            <div class="flex items-center justify-between pb-3 border-b border-neutral-800">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="edit-3" class="w-5 h-5 text-red-500"></i>
+                    تعديل بيانات التمرين
+                </h3>
+                <button onclick="closeEditModal()" class="text-neutral-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form id="edit-workout-form" onsubmit="saveEditedWorkout(event)" class="mt-4 space-y-4">
+                <input type="hidden" id="edit-id">
+                <div>
+                    <label class="block text-xs text-neutral-400 mb-1">اسم التمرين</label>
+                    <input type="text" id="edit-name" required class="w-full bg-black border border-neutral-800 rounded-xl px-3.5 py-2 text-sm text-white outline-none focus:border-red-600">
+                </div>
+                <div>
+                    <label class="block text-xs text-neutral-400 mb-1">العضلة المستهدفة</label>
+                    <select id="edit-muscle" class="w-full bg-black border border-neutral-800 rounded-xl px-3.5 py-2 text-sm text-white outline-none focus:border-red-600">
+                        <option value="صدر">صدر (Chest)</option>
+                        <option value="ظهر">ظهر (Back)</option>
+                        <option value="أكتاف">أكتاف (Shoulders)</option>
+                        <option value="ذراعين">ذراعين (Arms)</option>
+                        <option value="أرجل">أرجل (Legs)</option>
+                        <option value="بطن">بطن وكور (Core)</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs text-neutral-400 mb-1">الجولات</label>
+                        <input type="number" id="edit-sets" min="1" required class="w-full bg-black border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white text-center font-bold outline-none focus:border-red-600">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-neutral-400 mb-1">التكرارات</label>
+                        <input type="number" id="edit-reps" min="1" required class="w-full bg-black border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white text-center font-bold outline-none focus:border-red-600">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-neutral-400 mb-1">الوزن (كجم)</label>
+                        <input type="number" id="edit-weight" step="0.5" min="0" required class="w-full bg-black border border-neutral-800 rounded-xl px-3 py-2 text-sm text-red-500 text-center font-extrabold outline-none focus:border-red-600">
+                    </div>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="submit" class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl transition">حفظ التعديلات</button>
+                    <button type="button" onclick="closeEditModal()" class="flex-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 font-bold py-2.5 rounded-xl transition">إلغاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- تذييل الصفحة -->
+    <footer class="border-t border-neutral-900 py-4 text-center text-xs text-neutral-500 mt-8">
+        جميع البيانات يتم حفظها تلقائياً في متصفحك الخاص لضمان الخصوصية والسرعة • FitTrack Pro
+    </footer>
+
+    <!-- المنطق البرمجي للتطبيق (JavaScript) -->
+    <script>
+        // مفتاح التخزين المحلي في المتصفح
+        const STORAGE_KEY = 'fittrack_pro_data_v2';
+        const DEFAULT_HEIGHT = 170; // الطول الثابت الافتراضي 170 سم
+
+        // قاعدة بيانات شاملة لجميع تمارين الحديد مقسمة حسب العضلات
+        const EXERCISE_LIBRARY = {
+            'صدر': [
+                'بنش برس مستوي بار',
+                'بنش برس عالي بار',
+                'بنش برس سفلي',
+                'تجميع دمبل مستوي',
+                'تجميع دمبل عالي',
+                'تفتيح دمبل',
+                'تفتيح كابل (Cable Crossover)',
+                'جهاز الفراشة (Pec Deck)',
+                'متوازي للصدر (Dips)'
+            ],
+            'ظهر': [
+                'سحب أمامي واسع (Lat Pulldown)',
+                'سحب أرضي ضيق (Seated Cable Row)',
+                'تجديف بار (Barbell Row)',
+                'تجديف دمبل فردي',
+                'الرفعة الميتة (Deadlift)',
+                'عقلة (Pull-ups)',
+                'سحب T-Bar',
+                'بول أوفر كابل (Straight Arm Pulldown)',
+                'شراجز للترابيس (Shrugs)'
+            ],
+            'أكتاف': [
+                'ضغط كتف بار (Overhead Press)',
+                'ضغط كتف دمبل',
+                'رفرفة جانبية دمبل',
+                'رفرفة جانبية كابل',
+                'رفرفة أمامية',
+                'رفرفة خلفية (Rear Delt Fly)',
+                'سحب للوجه (Face Pulls)',
+                'أرنولد برس (Arnold Press)'
+            ],
+            'ذراعين': [
+                'تبادل دمبل (Dumbbell Curl)',
+                'تبادل بار (Barbell Curl)',
+                'هامر كيرل (Hammer Curl)',
+                'باي على البنش المائل',
+                'باي كابل',
+                'تراي بوش داون حبل (Tricep Rope Pushdown)',
+                'تراي مسطرة',
+                'سكال كراشر بار (Skull Crushers)',
+                'تراي خلف الرأس دمبل',
+                'سواعد (Wrist Curls)'
+            ],
+            'أرجل': [
+                'سكوات بار (Barbell Squat)',
+                'دفع أرجل جهاز (Leg Press)',
+                'رفرفة أرجل أمامي (Leg Extension)',
+                'رفرفة أرجل خلفي (Leg Curl)',
+                'لانجز دمبل (Lunges)',
+                'رومان ديدليفت (RDL)',
+                'سمانة واقف (Standing Calf Raise)',
+                'سمانة جالس (Seated Calf Raise)',
+                'هيب ثراست (Hip Thrust)'
+            ],
+            'بطن': [
+                'كرانش كابل',
+                'رفع أرجل معلق',
+                'بلانك (بالثواني/الوزن)',
+                'تويست روسي'
+            ]
+        };
+
+        // هيكل البيانات الرئيسي للتطبيق مع سجل يومي دائم وطول ثابت 170 سم
+        let appData = {
+            height: DEFAULT_HEIGHT,
+            weightHistory: [], // { date: 'YYYY-MM-DD', weight: 75.5 }
+            dailyLogs: {},     // { 'YYYY-MM-DD': { date, weight, height, updatedAt } }
+            workouts: {}       // { 'YYYY-MM-DD': [ { id, name, muscle, sets, reps, weight, completed } ] }
+        };
+
+        // حالة التصفية والتبويبات الحالية
+        let currentMuscleFilter = 'الكل';
+        let currentAnalyticsTab = 'daily';
+
+        // متغيرات الرسوم البيانية
+        let bodyWeightChartInstance = null;
+        let exerciseChartInstance = null;
+        let weeklyBarChartInstance = null;
+
+        // دالة الحصول على تاريخ اليوم بصيغة YYYY-MM-DD حسب التوقيت المحلي
+        function getTodayStr() {
+            const today = new Date();
+            return formatDateObj(today);
+        }
+
+        function formatDateObj(dateObj) {
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // تحميل البيانات من LocalStorage عند فتح الصفحة
+        function loadFromStorage() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('fittrack_pro_data_v1');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    appData = {
+                        height: parsed.height || DEFAULT_HEIGHT,
+                        weightHistory: Array.isArray(parsed.weightHistory) ? parsed.weightHistory : [],
+                        dailyLogs: parsed.dailyLogs || {},
+                        workouts: parsed.workouts || {}
+                    };
+                } else {
+                    appData.height = DEFAULT_HEIGHT;
+                }
+            } catch (e) {
+                console.error("خطأ في قراءة البيانات المحفوظة:", e);
+            }
+        }
+
+        // حفظ البيانات في LocalStorage مع تحديث سجل اليوم تلقائياً
+        function saveToStorage() {
+            try {
+                const selectedDate = document.getElementById('workout-date')?.value || getTodayStr();
+                const dayWeightEntry = appData.weightHistory.find(w => w.date === selectedDate);
+                const latestWeight = dayWeightEntry ? dayWeightEntry.weight : (appData.weightHistory.length ? appData.weightHistory[appData.weightHistory.length - 1].weight : null);
+
+                // توثيق حالة اليوم في dailyLogs
+                if ((appData.workouts[selectedDate] && appData.workouts[selectedDate].length > 0) || dayWeightEntry) {
+                    appData.dailyLogs[selectedDate] = {
+                        date: selectedDate,
+                        weight: latestWeight,
+                        height: appData.height || DEFAULT_HEIGHT,
+                        workoutCount: (appData.workouts[selectedDate] || []).length,
+                        updatedAt: new Date().toISOString()
+                    };
+                }
+
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+                
+                // وميض مؤشر الحفظ التلقائي
+                const indicator = document.getElementById('auto-save-indicator');
+                if (indicator) {
+                    indicator.classList.add('scale-105');
+                    setTimeout(() => indicator.classList.remove('scale-105'), 250);
+                }
+            } catch (e) {
+                showToast('حدث خطأ أثناء حفظ البيانات في المتصفح', 'error');
+            }
+        }
+
+        // إظهار إشعار أنيق للمستخدم (بالأبيض والأسود والأحمر)
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const colors = type === 'success' 
+                ? 'bg-[#121212]/95 border-red-600/70 text-white' 
+                : 'bg-red-950/95 border-red-500 text-white';
+            const icon = type === 'success' ? 'check-circle' : 'alert-circle';
+
+            toast.className = `flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-2xl backdrop-blur-md text-sm font-medium transform transition-all duration-300 translate-y-2 opacity-0 ${colors}`;
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 text-red-500 shrink-0"></i><span>${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // ==========================================
+        // 1. إدارة القياسات الجسدية ومؤشر BMI (الطول الثابت 170 سم)
+        // ==========================================
+
+        function checkHeightChanged() {
+            const val = parseFloat(document.getElementById('input-height').value);
+            const resetBtn = document.getElementById('reset-height-btn');
+            if (!isNaN(val) && val !== DEFAULT_HEIGHT) {
+                resetBtn.classList.remove('hidden');
+            } else {
+                resetBtn.classList.add('hidden');
+            }
+        }
+
+        function resetDefaultHeight() {
+            document.getElementById('input-height').value = DEFAULT_HEIGHT;
+            appData.height = DEFAULT_HEIGHT;
+            checkHeightChanged();
+            saveToStorage();
+            updateBodyMetricsUI();
+            updateAllAnalytics();
+            showToast(`تمت إعادة الطول إلى القيمة الثابتة (${DEFAULT_HEIGHT} سم)`);
+        }
+
+        function saveBodyMetrics(e) {
+            e.preventDefault();
+            const weight = parseFloat(document.getElementById('input-weight').value);
+            const heightInputVal = parseFloat(document.getElementById('input-height').value);
+            const height = (!isNaN(heightInputVal) && heightInputVal > 0) ? heightInputVal : DEFAULT_HEIGHT;
+            const selectedDate = document.getElementById('workout-date').value || getTodayStr();
+
+            if (isNaN(weight) || weight <= 0) {
+                showToast('يرجى إدخال قيمة صحيحة للوزن', 'error');
+                return;
+            }
+
+            appData.height = height;
+
+            const existingIndex = appData.weightHistory.findIndex(item => item.date === selectedDate);
+            if (existingIndex !== -1) {
+                appData.weightHistory[existingIndex].weight = weight;
+            } else {
+                appData.weightHistory.push({ date: selectedDate, weight: weight });
+            }
+
+            appData.weightHistory.sort((a, b) => a.date.localeCompare(b.date));
+
+            saveToStorage();
+            updateBodyMetricsUI();
+            updateBodyWeightChart();
+            renderDaysRibbon();
+            updateAllAnalytics();
+            showToast(`تم حفظ قياسات يوم ${selectedDate}: الوزن ${weight} كجم، الطول ${height} سم`);
+        }
+
+        function updateBodyMetricsUI() {
+            const heightInput = document.getElementById('input-height');
+            const weightInput = document.getElementById('input-weight');
+            const lastDateLabel = document.getElementById('last-weight-date');
+            const pillsContainer = document.getElementById('weight-history-pills');
+            const selectedDate = document.getElementById('workout-date')?.value || getTodayStr();
+
+            const activeHeight = appData.height || DEFAULT_HEIGHT;
+            heightInput.value = activeHeight;
+            checkHeightChanged();
+
+            if (appData.weightHistory.length > 0) {
+                const exactDayWeight = appData.weightHistory.find(w => w.date === selectedDate);
+                const latest = exactDayWeight || appData.weightHistory[appData.weightHistory.length - 1];
+                
+                weightInput.value = latest.weight;
+                lastDateLabel.textContent = exactDayWeight ? `مسجل بتاريخ: ${selectedDate}` : `آخر تحديث: ${latest.date}`;
+
+                const heightInMeters = activeHeight / 100;
+                const bmi = (latest.weight / (heightInMeters * heightInMeters)).toFixed(1);
+                document.getElementById('bmi-value').textContent = bmi;
+
+                const badge = document.getElementById('bmi-badge');
+                if (bmi < 18.5) {
+                    badge.textContent = 'نقص في الوزن';
+                    badge.className = 'text-xs font-bold px-2.5 py-1 rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700';
+                } else if (bmi >= 18.5 && bmi < 25) {
+                    badge.textContent = 'وزن مثالي وصحي';
+                    badge.className = 'text-xs font-bold px-2.5 py-1 rounded-full bg-white text-black';
+                } else if (bmi >= 25 && bmi < 30) {
+                    badge.textContent = 'زيادة في الوزن';
+                    badge.className = 'text-xs font-bold px-2.5 py-1 rounded-full bg-red-600/20 text-red-400 border border-red-600/40';
+                } else {
+                    badge.textContent = 'سمنة';
+                    badge.className = 'text-xs font-bold px-2.5 py-1 rounded-full bg-red-600 text-white';
+                }
+
+                const recentWeights = [...appData.weightHistory].reverse().slice(0, 6);
+                pillsContainer.innerHTML = recentWeights.map(item => `
+                    <button type="button" onclick="jumpToDate('${item.date}')" class="shrink-0 bg-black hover:bg-neutral-900 border ${item.date === selectedDate ? 'border-red-600' : 'border-neutral-800'} px-3 py-1.5 rounded-lg text-xs flex flex-col items-center transition">
+                        <span class="font-bold text-white">${item.weight} كجم</span>
+                        <span class="text-[10px] text-neutral-400">${item.date}</span>
+                    </button>
+                `).join('');
+            } else {
+                document.getElementById('bmi-value').textContent = '--';
+                pillsContainer.innerHTML = '<span class="text-xs text-neutral-500">لا توجد قراءات مسجلة بعد</span>';
+            }
+        }
+
+        function clearWeightHistory() {
+            if (appData.weightHistory.length === 0) return;
+            appData.weightHistory = [];
+            saveToStorage();
+            updateBodyMetricsUI();
+            updateBodyWeightChart();
+            updateAllAnalytics();
+            showToast('تم مسح سجل الوزن');
+        }
+
+        // ==========================================
+        // 2. موسوعة تمارين الحديد والتصفية الذكية
+        // ==========================================
+
+        function initExerciseLibrary() {
+            const datalist = document.getElementById('common-exercises');
+            const allOptions = [];
+            Object.entries(EXERCISE_LIBRARY).forEach(([muscle, exercises]) => {
+                exercises.forEach(ex => {
+                    allOptions.push(`<option value="${ex}">${muscle}</option>`);
+                });
+            });
+            datalist.innerHTML = allOptions.join('');
+            renderQuickExercisePills();
+        }
+
+        function selectMuscleFilter(muscle) {
+            currentMuscleFilter = muscle;
+            
+            document.querySelectorAll('.muscle-tab').forEach(btn => {
+                if (btn.dataset.muscle === muscle) {
+                    btn.className = 'muscle-tab shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-red-600 text-white border border-red-600 transition';
+                } else {
+                    btn.className = 'muscle-tab shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-black text-neutral-300 hover:bg-neutral-900 hover:text-white border border-neutral-800 transition';
+                }
+            });
+
+            if (muscle !== 'الكل') {
+                document.getElementById('ex-muscle').value = muscle;
+            }
+
+            renderQuickExercisePills();
+        }
+
+        function onFormMuscleChange(muscle) {
+            selectMuscleFilter(muscle);
+        }
+
+        function renderQuickExercisePills(searchQuery = '') {
+            const container = document.getElementById('quick-exercise-pills');
+            const badge = document.getElementById('library-count-badge');
+            let items = [];
+
+            Object.entries(EXERCISE_LIBRARY).forEach(([muscle, exercises]) => {
+                if (currentMuscleFilter === 'الكل' || currentMuscleFilter === muscle) {
+                    exercises.forEach(name => {
+                        if (!searchQuery || name.toLowerCase().includes(searchQuery.toLowerCase())) {
+                            items.push({ name, muscle });
+                        }
+                    });
+                }
+            });
+
+            badge.textContent = `${items.length} تمرين متاح`;
+
+            if (items.length === 0) {
+                container.innerHTML = `<span class="text-xs text-neutral-500 py-1">لا يوجد تمرين مطابق في القائمة، يمكنك كتابته وإضافته يدوياً مباشرة.</span>`;
+                return;
+            }
+
+            container.innerHTML = items.map(item => {
+                const lastWeight = getLastUsedWeight(item.name);
+                const weightHint = lastWeight > 0 ? `<span class="text-red-500 font-bold mr-1">(${lastWeight}كجم)</span>` : '';
+                return `
+                    <button type="button" onclick="quickPickExercise('${item.name.replace(/'/g, "\\'")}', '${item.muscle}')"
+                        class="shrink-0 bg-black hover:bg-red-600/15 hover:border-red-600 text-neutral-200 hover:text-white border border-neutral-800 px-3 py-1.5 rounded-xl text-xs transition flex items-center gap-1">
+                        <span>+ ${item.name}</span>
+                        ${weightHint}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function handleExerciseInput(val) {
+            renderQuickExercisePills(val.trim());
+            for (const [muscle, exercises] of Object.entries(EXERCISE_LIBRARY)) {
+                if (exercises.some(ex => ex.toLowerCase() === val.trim().toLowerCase())) {
+                    document.getElementById('ex-muscle').value = muscle;
+                    break;
+                }
+            }
+        }
+
+        function quickPickExercise(name, muscle) {
+            document.getElementById('ex-name').value = name;
+            document.getElementById('ex-muscle').value = muscle;
+            
+            const lastWeight = getLastUsedWeight(name);
+            if (lastWeight > 0) {
+                document.getElementById('ex-weight').value = lastWeight;
+            }
+            document.getElementById('ex-weight').focus();
+        }
+
+        function getLastUsedWeight(exerciseName) {
+            const normalized = exerciseName.trim().toLowerCase();
+            const sortedDates = Object.keys(appData.workouts).sort().reverse();
+            for (const d of sortedDates) {
+                const match = appData.workouts[d].find(ex => ex.name.trim().toLowerCase() === normalized);
+                if (match && match.weight > 0) return match.weight;
+            }
+            return 0;
+        }
+
+        // ==========================================
+        // 3. إدارة التمارين اليومية وشريط الأيام
+        // ==========================================
+
+        function onDateChange() {
+            updateBodyMetricsUI();
+            renderDaysRibbon();
+            renderWorkouts();
+            updateAllAnalytics();
+        }
+
+        function jumpToDate(dateStr) {
+            document.getElementById('workout-date').value = dateStr;
+            onDateChange();
+        }
+
+        function setToday() {
+            document.getElementById('workout-date').value = getTodayStr();
+            onDateChange();
+        }
+
+        function changeDate(daysDelta) {
+            const dateInput = document.getElementById('workout-date');
+            const current = new Date(dateInput.value || getTodayStr());
+            current.setDate(current.getDate() + daysDelta);
+            dateInput.value = formatDateObj(current);
+            onDateChange();
+        }
+
+        function renderDaysRibbon() {
+            const ribbon = document.getElementById('days-ribbon');
+            const selectedDateStr = document.getElementById('workout-date').value || getTodayStr();
+            const baseDate = new Date(selectedDateStr);
+            const arabicDays = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+
+            const totalActiveDays = Object.keys(appData.workouts).filter(d => appData.workouts[d]?.length > 0).length;
+            document.getElementById('active-days-badge').textContent = `${totalActiveDays} أيام تدريب مسجلة`;
+
+            let html = '';
+            for (let offset = -7; offset <= 6; offset++) {
+                const d = new Date(baseDate);
+                d.setDate(baseDate.getDate() + offset);
+                const dStr = formatDateObj(d);
+                const dayName = arabicDays[d.getDay()];
+                const dayNum = d.getDate();
+                const hasWorkouts = appData.workouts[dStr] && appData.workouts[dStr].length > 0;
+                const isSelected = dStr === selectedDateStr;
+                const isToday = dStr === getTodayStr();
+
+                html += `
+                    <button type="button" onclick="jumpToDate('${dStr}')"
+                        class="shrink-0 min-w-[64px] py-2 px-2.5 rounded-xl border flex flex-col items-center justify-center transition relative
+                        ${isSelected 
+                            ? 'bg-red-600/20 border-red-600 text-white shadow-md' 
+                            : 'bg-black border-neutral-800 hover:border-neutral-600 text-neutral-400 hover:text-white'}">
+                        <span class="text-[10px] ${isToday ? 'text-red-500 font-bold' : ''}">${isToday ? 'اليوم' : dayName}</span>
+                        <span class="text-sm font-extrabold mt-0.5 ${isSelected ? 'text-white' : 'text-neutral-200'}">${dayNum}</span>
+                        <span class="w-2 h-2 rounded-full mt-1 ${hasWorkouts ? 'bg-red-600 shadow-[0_0_6px_#dc2626]' : 'bg-transparent'}"></span>
+                    </button>
+                `;
+            }
+            ribbon.innerHTML = html;
+        }
+
+        function addWorkout(e) {
+            e.preventDefault();
+            const date = document.getElementById('workout-date').value;
+            const name = document.getElementById('ex-name').value.trim();
+            const muscle = document.getElementById('ex-muscle').value;
+            const sets = parseInt(document.getElementById('ex-sets').value);
+            const reps = parseInt(document.getElementById('ex-reps').value);
+            const weight = parseFloat(document.getElementById('ex-weight').value);
+
+            if (!name || isNaN(sets) || isNaN(reps) || isNaN(weight)) return;
+
+            if (!appData.workouts[date]) {
+                appData.workouts[date] = [];
+            }
+
+            const previousPR = getExercisePR(name);
+            const isNewPR = weight > 0 && weight > previousPR && previousPR > 0;
+
+            const newExercise = {
+                id: Date.now().toString(),
+                name,
+                muscle,
+                sets,
+                reps,
+                weight,
+                completed: false
+            };
+
+            appData.workouts[date].push(newExercise);
+            saveToStorage();
+
+            document.getElementById('ex-name').value = '';
+            document.getElementById('ex-weight').value = '';
+            renderQuickExercisePills();
+
+            renderDaysRibbon();
+            renderWorkouts();
+            updatePRsAndCharts();
+            updateAllAnalytics();
+
+            if (isNewPR) {
+                showToast(`رقم قياسي جديد في تمرين ${name}: ${weight} كجم! 🔥`);
+            } else {
+                showToast('تمت إضافة التمرين وحفظه في سجل اليوم');
+            }
+        }
+
+        function getExercisePR(exerciseName) {
+            let maxWeight = 0;
+            const normalized = exerciseName.trim().toLowerCase();
+            Object.values(appData.workouts).forEach(dayList => {
+                dayList.forEach(ex => {
+                    if (ex.name.trim().toLowerCase() === normalized && ex.weight > maxWeight) {
+                        maxWeight = ex.weight;
+                    }
+                });
+            });
+            return maxWeight;
+        }
+
+        function renderWorkouts() {
+            const date = document.getElementById('workout-date').value;
+            const listContainer = document.getElementById('workouts-list');
+            const dayWorkouts = appData.workouts[date] || [];
+
+            const completedCount = dayWorkouts.filter(w => w.completed).length;
+            document.getElementById('daily-completed-count').textContent = `${completedCount} / ${dayWorkouts.length}`;
+
+            const totalVolume = dayWorkouts.reduce((sum, w) => sum + (w.sets * w.reps * w.weight), 0);
+            document.getElementById('daily-total-volume').innerHTML = `${totalVolume.toLocaleString()} <small class="text-xs font-normal text-neutral-400">كجم</small>`;
+
+            const motivationEl = document.getElementById('daily-motivation');
+            if (dayWorkouts.length === 0) {
+                motivationEl.innerHTML = `<i data-lucide="info" class="w-4 h-4 text-neutral-400 shrink-0"></i><span>لم تسجل أي تمارين لهذا اليوم بعد.</span>`;
+            } else if (completedCount === dayWorkouts.length) {
+                motivationEl.innerHTML = `<i data-lucide="trophy" class="w-4 h-4 text-red-500 shrink-0"></i><span class="text-white font-bold">رائع! لقد أنهيت جميع تمارين اليوم بنجاح!</span>`;
+            } else {
+                motivationEl.innerHTML = `<i data-lucide="zap" class="w-4 h-4 text-red-500 shrink-0"></i><span>واصل التقدم! متبقي ${dayWorkouts.length - completedCount} تمارين لإكمال جدولك.</span>`;
+            }
+
+            if (dayWorkouts.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="text-center py-10 bg-black border border-dashed border-neutral-800 rounded-2xl">
+                        <i data-lucide="dumbbell" class="w-10 h-10 text-neutral-600 mx-auto mb-2"></i>
+                        <p class="text-sm text-neutral-400">لا توجد تمارين مسجلة في تاريخ <span class="text-white font-bold">${date}</span></p>
+                        <p class="text-xs text-neutral-500 mt-1">استخدم النموذج أعلاه لإضافة تمرينك الأول اليوم</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            // ألوان شارات العضلات بالأبيض والأسود والأحمر فقط
+            const muscleColors = {
+                'صدر': 'bg-red-600/20 text-red-400 border-red-600/40',
+                'ظهر': 'bg-white/10 text-white border-white/25',
+                'أرجل': 'bg-red-600 text-white border-red-600',
+                'أكتاف': 'bg-neutral-800 text-neutral-200 border-neutral-700',
+                'ذراعين': 'bg-red-950/60 text-red-300 border-red-800/60',
+                'بطن': 'bg-neutral-900 text-neutral-300 border-neutral-700'
+            };
+
+            listContainer.innerHTML = dayWorkouts.map(ex => {
+                const pr = getExercisePR(ex.name);
+                const isPR = ex.weight > 0 && ex.weight === pr;
+                const badgeStyle = muscleColors[ex.muscle] || 'bg-neutral-800 text-neutral-300 border-neutral-700';
+
+                return `
+                <div class="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border transition-all ${ex.completed ? 'bg-red-950/20 border-red-600/40' : 'bg-black border-neutral-800 hover:border-neutral-700'}">
+                    <div class="flex items-start sm:items-center gap-3.5">
+                        <!-- زر إكمال التمرين -->
+                        <button onclick="toggleComplete('${ex.id}')" class="mt-0.5 sm:mt-0 w-6 h-6 rounded-lg border flex items-center justify-center transition shrink-0 ${ex.completed ? 'bg-red-600 border-red-600 text-white' : 'border-neutral-600 hover:border-red-500 text-transparent'}">
+                            <i data-lucide="check" class="w-4 h-4 stroke-[3]"></i>
+                        </button>
+
+                        <div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h4 class="font-bold text-base ${ex.completed ? 'line-through text-neutral-400' : 'text-white'}">${ex.name}</h4>
+                                <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${badgeStyle}">${ex.muscle}</span>
+                                ${isPR ? `<span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white text-black flex items-center gap-1"><i data-lucide="crown" class="w-3 h-3 text-red-600"></i> أعلى وزن (PR)</span>` : ''}
+                            </div>
+                            <div class="flex items-center gap-4 mt-1.5 text-xs text-neutral-400">
+                                <span>الجولات: <strong class="text-white">${ex.sets}</strong></span>
+                                <span>•</span>
+                                <span>التكرارات: <strong class="text-white">${ex.reps}</strong></span>
+                                <span>•</span>
+                                <span>الحجم الكلي: <strong class="text-neutral-200">${(ex.sets * ex.reps * ex.weight).toLocaleString()} كجم</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- الوزن وأزرار التعديل السريع والحذف -->
+                    <div class="flex items-center justify-between sm:justify-end gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 border-neutral-800">
+                        <div class="flex items-center bg-[#121212] border border-neutral-800 rounded-xl p-1">
+                            <button onclick="quickAdjustWeight('${ex.id}', -2.5)" title="إنقاص 2.5 كجم" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition font-bold">-</button>
+                            <div class="px-3 text-center">
+                                <span class="text-base font-extrabold text-red-500">${ex.weight}</span>
+                                <span class="text-[10px] text-neutral-400 block -mt-1">كجم</span>
+                            </div>
+                            <button onclick="quickAdjustWeight('${ex.id}', 2.5)" title="زيادة 2.5 كجم" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition font-bold">+</button>
+                        </div>
+
+                        <div class="flex items-center gap-1">
+                            <button onclick="openEditModal('${ex.id}')" title="تعديل التمرين" class="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition">
+                                <i data-lucide="edit-2" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="deleteWorkout('${ex.id}')" title="حذف التمرين" class="p-2 text-neutral-400 hover:text-red-500 hover:bg-neutral-800 rounded-lg transition">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        function toggleComplete(id) {
+            const date = document.getElementById('workout-date').value;
+            const workout = appData.workouts[date]?.find(w => w.id === id);
+            if (workout) {
+                workout.completed = !workout.completed;
+                saveToStorage();
+                renderWorkouts();
+                updateAllAnalytics();
+            }
+        }
+
+        function quickAdjustWeight(id, delta) {
+            const date = document.getElementById('workout-date').value;
+            const workout = appData.workouts[date]?.find(w => w.id === id);
+            if (workout) {
+                workout.weight = Math.max(0, workout.weight + delta);
+                saveToStorage();
+                renderWorkouts();
+                updatePRsAndCharts();
+                updateAllAnalytics();
+            }
+        }
+
+        function deleteWorkout(id) {
+            const date = document.getElementById('workout-date').value;
+            if (!appData.workouts[date]) return;
+            appData.workouts[date] = appData.workouts[date].filter(w => w.id !== id);
+            if (appData.workouts[date].length === 0) {
+                delete appData.workouts[date];
+            }
+            saveToStorage();
+            renderDaysRibbon();
+            renderWorkouts();
+            updatePRsAndCharts();
+            updateAllAnalytics();
+            showToast('تم حذف التمرين');
+        }
+
+        function copyPreviousDayWorkouts() {
+            const currentDate = document.getElementById('workout-date').value;
+            const allDates = Object.keys(appData.workouts).filter(d => d < currentDate && appData.workouts[d].length > 0).sort();
+            
+            if (allDates.length === 0) {
+                showToast('لا توجد جلسات سابقة لنسخها', 'error');
+                return;
+            }
+
+            const lastSessionDate = allDates[allDates.length - 1];
+            const copied = appData.workouts[lastSessionDate].map((ex, idx) => ({
+                ...ex,
+                id: (Date.now() + idx).toString(),
+                completed: false
+            }));
+
+            if (!appData.workouts[currentDate]) {
+                appData.workouts[currentDate] = [];
+            }
+            appData.workouts[currentDate].push(...copied);
+            saveToStorage();
+            renderDaysRibbon();
+            renderWorkouts();
+            updatePRsAndCharts();
+            updateAllAnalytics();
+            showToast(`تم نسخ ${copied.length} تمارين من جلسة ${lastSessionDate}`);
+        }
+
+        function openEditModal(id) {
+            const date = document.getElementById('workout-date').value;
+            const workout = appData.workouts[date]?.find(w => w.id === id);
+            if (!workout) return;
+
+            document.getElementById('edit-id').value = workout.id;
+            document.getElementById('edit-name').value = workout.name;
+            document.getElementById('edit-muscle').value = workout.muscle;
+            document.getElementById('edit-sets').value = workout.sets;
+            document.getElementById('edit-reps').value = workout.reps;
+            document.getElementById('edit-weight').value = workout.weight;
+
+            const modal = document.getElementById('edit-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeEditModal() {
+            const modal = document.getElementById('edit-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function saveEditedWorkout(e) {
+            e.preventDefault();
+            const date = document.getElementById('workout-date').value;
+            const id = document.getElementById('edit-id').value;
+            const workout = appData.workouts[date]?.find(w => w.id === id);
+
+            if (workout) {
+                workout.name = document.getElementById('edit-name').value.trim();
+                workout.muscle = document.getElementById('edit-muscle').value;
+                workout.sets = parseInt(document.getElementById('edit-sets').value);
+                workout.reps = parseInt(document.getElementById('edit-reps').value);
+                workout.weight = parseFloat(document.getElementById('edit-weight').value);
+
+                saveToStorage();
+                renderWorkouts();
+                updatePRsAndCharts();
+                updateAllAnalytics();
+                closeEditModal();
+                showToast('تم تحديث بيانات التمرين');
+            }
+        }
+
+        // ==========================================
+        // 4. التحليل اليومي والأسبوعي والشهري (Analytics)
+        // ==========================================
+
+        function switchAnalyticsTab(tabName) {
+            currentAnalyticsTab = tabName;
+
+            ['daily', 'weekly', 'monthly'].forEach(tab => {
+                const btn = document.getElementById(`tab-btn-${tab}`);
+                const panel = document.getElementById(`analytics-panel-${tab}`);
+                
+                if (tab === tabName) {
+                    btn.className = 'analytics-tab-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-bold bg-red-600 text-white transition flex items-center gap-1.5';
+                    panel.classList.remove('hidden');
+                } else {
+                    btn.className = 'analytics-tab-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-bold text-neutral-400 hover:text-white transition flex items-center gap-1.5';
+                    panel.classList.add('hidden');
+                }
+            });
+
+            updateAllAnalytics();
+        }
+
+        function updateAllAnalytics() {
+            const selectedDate = document.getElementById('workout-date')?.value || getTodayStr();
+            renderDailyAnalytics(selectedDate);
+            renderWeeklyAnalytics(selectedDate);
+            renderMonthlyAnalytics(selectedDate);
+        }
+
+        function renderDailyAnalytics(dateStr) {
+            const dayWorkouts = appData.workouts[dateStr] || [];
+            
+            let totalVolume = 0;
+            let totalSets = 0;
+            let totalReps = 0;
+            const muscleVolumeMap = {};
+
+            dayWorkouts.forEach(ex => {
+                const vol = ex.sets * ex.reps * ex.weight;
+                totalVolume += vol;
+                totalSets += ex.sets;
+                totalReps += (ex.sets * ex.reps);
+                muscleVolumeMap[ex.muscle] = (muscleVolumeMap[ex.muscle] || 0) + vol;
+            });
+
+            document.getElementById('an-daily-volume').textContent = `${totalVolume.toLocaleString()} كجم`;
+            document.getElementById('an-daily-sets-reps').textContent = `${totalSets} جولة`;
+            document.getElementById('an-daily-total-reps').textContent = `${totalReps} تكرار كلي`;
+            document.getElementById('an-daily-exercises').textContent = dayWorkouts.length;
+            document.getElementById('an-daily-muscles-count').textContent = `${Object.keys(muscleVolumeMap).length} مجموعات عضلية`;
+
+            const exactWeight = appData.weightHistory.find(w => w.date === dateStr);
+            const fallbackWeight = appData.weightHistory.filter(w => w.date <= dateStr).pop();
+            const weightObj = exactWeight || fallbackWeight;
+            const activeHeight = appData.height || DEFAULT_HEIGHT;
+
+            if (weightObj && activeHeight) {
+                const bmi = (weightObj.weight / Math.pow(activeHeight / 100, 2)).toFixed(1);
+                document.getElementById('an-daily-bodyweight').textContent = `${weightObj.weight} كجم`;
+                document.getElementById('an-daily-bmi').textContent = `BMI: ${bmi} (طول ${activeHeight} سم)`;
+            } else {
+                document.getElementById('an-daily-bodyweight').textContent = '--';
+                document.getElementById('an-daily-bmi').textContent = `BMI: -- (طول ${activeHeight} سم)`;
+            }
+
+            const breakdownEl = document.getElementById('an-daily-muscle-breakdown');
+            const muscleEntries = Object.entries(muscleVolumeMap).sort((a, b) => b[1] - a[1]);
+
+            if (muscleEntries.length === 0) {
+                breakdownEl.innerHTML = `<p class="text-xs text-neutral-500">لا توجد تمارين مسجلة في يوم ${dateStr} لعرض التوزيع العضلي.</p>`;
+            } else {
+                breakdownEl.innerHTML = muscleEntries.map(([muscle, vol]) => {
+                    const pct = totalVolume > 0 ? Math.round((vol / totalVolume) * 100) : Math.round(100 / muscleEntries.length);
+                    return `
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="font-bold text-white">${muscle}</span>
+                                <span class="text-neutral-400">${vol.toLocaleString()} كجم (<strong class="text-red-500">${pct}%</strong>)</span>
+                            </div>
+                            <div class="w-full h-2 bg-neutral-900 rounded-full overflow-hidden">
+                                <div class="bg-red-600 h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            const comparisonEl = document.getElementById('an-daily-comparison');
+            if (dayWorkouts.length === 0) {
+                comparisonEl.innerHTML = `<p class="text-xs text-neutral-500">أضف تمارين اليوم لمقارنة أوزانها مع جلساتك السابقة تلقائياً.</p>`;
+            } else {
+                const previousDates = Object.keys(appData.workouts).filter(d => d < dateStr).sort().reverse();
+                
+                comparisonEl.innerHTML = dayWorkouts.map(ex => {
+                    const normName = ex.name.trim().toLowerCase();
+                    let prevSession = null;
+
+                    for (const pDate of previousDates) {
+                        const found = appData.workouts[pDate].find(p => p.name.trim().toLowerCase() === normName);
+                        if (found) {
+                            prevSession = { date: pDate, weight: found.weight, reps: found.reps, sets: found.sets };
+                            break;
+                        }
+                    }
+
+                    if (!prevSession) {
+                        return `
+                            <div class="flex items-center justify-between bg-[#121212] border border-neutral-800 px-3.5 py-2.5 rounded-xl text-xs">
+                                <span class="font-bold text-white">${ex.name}</span>
+                                <span class="text-white bg-neutral-900 border border-neutral-700 px-2.5 py-1 rounded-lg font-semibold">أول تسجيل لهذا التمرين (${ex.weight} كجم)</span>
+                            </div>
+                        `;
+                    }
+
+                    const diff = +(ex.weight - prevSession.weight).toFixed(1);
+                    let statusHtml = '';
+                    if (diff > 0) {
+                        statusHtml = `<span class="text-white bg-red-600 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1">▲ زاد بمقدار +${diff} كجم <small class="text-red-200 font-normal">(السابق: ${prevSession.weight})</small></span>`;
+                    } else if (diff < 0) {
+                        statusHtml = `<span class="text-red-400 bg-red-950/60 border border-red-800/60 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1">▼ قل بمقدار ${Math.abs(diff)} كجم <small class="text-neutral-400 font-normal">(السابق: ${prevSession.weight})</small></span>`;
+                    } else {
+                        statusHtml = `<span class="text-neutral-200 bg-neutral-900 border border-neutral-700 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1">● نفس الوزن السابق (${ex.weight} كجم)</span>`;
+                    }
+
+                    return `
+                        <div class="flex flex-wrap items-center justify-between gap-2 bg-[#121212] border border-neutral-800 px-3.5 py-2.5 rounded-xl text-xs">
+                            <div>
+                                <span class="font-bold text-white block">${ex.name}</span>
+                                <span class="text-[10px] text-neutral-500">آخر جلسة: ${prevSession.date}</span>
+                            </div>
+                            ${statusHtml}
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        function renderWeeklyAnalytics(dateStr) {
+            const endDate = new Date(dateStr);
+            const startDate = new Date(dateStr);
+            startDate.setDate(endDate.getDate() - 6);
+
+            const startStr = formatDateObj(startDate);
+            const endStr = formatDateObj(endDate);
+            document.getElementById('an-weekly-range').textContent = `من ${startStr} إلى ${endStr}`;
+
+            const arabicDays = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+            const dayLabels = [];
+            const dayVolumes = [];
+
+            let activeDays = 0;
+            let weeklyVolume = 0;
+            let weeklySets = 0;
+            let weeklyExercises = 0;
+
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(startDate);
+                d.setDate(startDate.getDate() + i);
+                const dStr = formatDateObj(d);
+                const workouts = appData.workouts[dStr] || [];
+
+                dayLabels.push(`${arabicDays[d.getDay()]} (${d.getDate()})`);
+
+                if (workouts.length > 0) {
+                    activeDays++;
+                    weeklyExercises += workouts.length;
+                }
+
+                let dVol = 0;
+                workouts.forEach(ex => {
+                    dVol += (ex.sets * ex.reps * ex.weight);
+                    weeklySets += ex.sets;
+                });
+
+                weeklyVolume += dVol;
+                dayVolumes.push(dVol);
+            }
+
+            const consistencyPct = Math.min(100, Math.round((activeDays / 5) * 100));
+
+            document.getElementById('an-weekly-days').textContent = `${activeDays} / 7`;
+            document.getElementById('an-weekly-volume').textContent = `${weeklyVolume.toLocaleString()} كجم`;
+            document.getElementById('an-weekly-sets').textContent = `${weeklySets} جولة`;
+            document.getElementById('an-weekly-exercises').textContent = `${weeklyExercises} تمرين منجز`;
+            document.getElementById('an-weekly-consistency').textContent = `${consistencyPct}%`;
+
+            const ctx = document.getElementById('weeklyBarChart').getContext('2d');
+            if (weeklyBarChartInstance) {
+                weeklyBarChartInstance.destroy();
+            }
+
+            weeklyBarChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dayLabels,
+                    datasets: [{
+                        label: 'الحجم التدريبي (كجم)',
+                        data: dayVolumes,
+                        backgroundColor: dayVolumes.map(v => v > 0 ? 'rgba(220, 38, 38, 0.85)' : 'rgba(38, 38, 38, 0.4)'),
+                        borderColor: dayVolumes.map(v => v > 0 ? '#ffffff' : '#262626'),
+                        borderWidth: 1,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#d4d4d4', font: { family: 'Cairo', size: 11 } }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255, 255, 255, 0.08)' },
+                            ticks: { color: '#d4d4d4', font: { family: 'Cairo' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderMonthlyAnalytics(dateStr) {
+            const monthPrefix = dateStr.slice(0, 7);
+            const arabicMonths = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+            const [year, monthNum] = monthPrefix.split('-');
+            document.getElementById('an-monthly-title').textContent = `${arabicMonths[parseInt(monthNum, 10) - 1]} ${year} (${monthPrefix})`;
+
+            const monthDates = Object.keys(appData.workouts).filter(d => d.startsWith(monthPrefix) && appData.workouts[d].length > 0).sort();
+            
+            let monthlyVolume = 0;
+            const muscleSetsMap = {};
+            const monthlyPRsMap = {};
+
+            monthDates.forEach(d => {
+                appData.workouts[d].forEach(ex => {
+                    monthlyVolume += (ex.sets * ex.reps * ex.weight);
+                    muscleSetsMap[ex.muscle] = (muscleSetsMap[ex.muscle] || 0) + ex.sets;
+
+                    const name = ex.name.trim();
+                    if (ex.weight > 0 && (!monthlyPRsMap[name] || ex.weight > monthlyPRsMap[name].weight)) {
+                        monthlyPRsMap[name] = { weight: ex.weight, date: d, muscle: ex.muscle };
+                    }
+                });
+            });
+
+            document.getElementById('an-monthly-sessions').textContent = `${monthDates.length} حصة`;
+            document.getElementById('an-monthly-volume').textContent = `${monthlyVolume.toLocaleString()} كجم`;
+
+            const monthWeights = appData.weightHistory.filter(w => w.date.startsWith(monthPrefix)).sort((a, b) => a.date.localeCompare(b.date));
+            const activeHeight = appData.height || DEFAULT_HEIGHT;
+
+            if (monthWeights.length >= 2) {
+                const firstW = monthWeights[0].weight;
+                const lastW = monthWeights[monthWeights.length - 1].weight;
+                const diff = +(lastW - firstW).toFixed(1);
+                const sign = diff > 0 ? '+' : '';
+                document.getElementById('an-monthly-weight-diff').textContent = `${sign}${diff} كجم`;
+                const latestBmi = (lastW / Math.pow(activeHeight / 100, 2)).toFixed(1);
+                document.getElementById('an-monthly-bmi-range').textContent = `من ${firstW} إلى ${lastW} كجم (BMI: ${latestBmi})`;
+            } else if (monthWeights.length === 1) {
+                document.getElementById('an-monthly-weight-diff').textContent = `${monthWeights[0].weight} كجم`;
+                document.getElementById('an-monthly-bmi-range').textContent = 'قراءة واحدة مسجلة بالشهر';
+            } else {
+                document.getElementById('an-monthly-weight-diff').textContent = '--';
+                document.getElementById('an-monthly-bmi-range').textContent = 'لا توجد قراءات وزن بالشهر';
+            }
+
+            const sortedMuscles = Object.entries(muscleSetsMap).sort((a, b) => b[1] - a[1]);
+            if (sortedMuscles.length > 0) {
+                document.getElementById('an-monthly-top-muscle').textContent = sortedMuscles[0][0];
+                document.getElementById('an-monthly-top-muscle-sets').textContent = `${sortedMuscles[0][1]} جولة خلال الشهر`;
+            } else {
+                document.getElementById('an-monthly-top-muscle').textContent = '--';
+                document.getElementById('an-monthly-top-muscle-sets').textContent = '0 جولة خلال الشهر';
+            }
+
+            const prsContainer = document.getElementById('an-monthly-prs');
+            const prEntries = Object.entries(monthlyPRsMap).sort((a, b) => b[1].weight - a[1].weight);
+
+            if (prEntries.length === 0) {
+                prsContainer.innerHTML = `<p class="text-xs text-neutral-500">لا توجد تمارين مسجلة في شهر ${monthPrefix}.</p>`;
+            } else {
+                prsContainer.innerHTML = prEntries.map(([name, info]) => `
+                    <div class="flex items-center justify-between bg-[#121212] border border-neutral-800 px-3.5 py-2 rounded-xl text-xs">
+                        <div>
+                            <span class="font-bold text-white">${name}</span>
+                            <span class="text-[10px] text-neutral-400 mr-2">(${info.muscle} • ${info.date})</span>
+                        </div>
+                        <span class="font-extrabold text-white bg-red-600 px-2.5 py-1 rounded-lg">${info.weight} كجم</span>
+                    </div>
+                `).join('');
+            }
+
+            const musclesContainer = document.getElementById('an-monthly-muscles');
+            const totalMonthSets = sortedMuscles.reduce((sum, [_, s]) => sum + s, 0);
+
+            if (sortedMuscles.length === 0) {
+                musclesContainer.innerHTML = `<p class="text-xs text-neutral-500">لا توجد بيانات عضلية لهذا الشهر.</p>`;
+            } else {
+                musclesContainer.innerHTML = sortedMuscles.map(([muscle, sets]) => {
+                    const pct = Math.round((sets / totalMonthSets) * 100);
+                    return `
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="font-bold text-white">${muscle}</span>
+                                <span class="text-neutral-400">${sets} جولة (<strong class="text-white">${pct}%</strong>)</span>
+                            </div>
+                            <div class="w-full h-2 bg-neutral-900 rounded-full overflow-hidden">
+                                <div class="bg-white h-full rounded-full" style="width: ${pct}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // ==========================================
+        // 5. الأرقام القياسية والرسوم البيانية (Chart.js بالأبيض والأحمر)
+        // ==========================================
+
+        function updatePRsAndCharts() {
+            const prMap = {};
+            Object.values(appData.workouts).forEach(dayList => {
+                dayList.forEach(ex => {
+                    const name = ex.name.trim();
+                    if (!prMap[name] || ex.weight > prMap[name]) {
+                        prMap[name] = ex.weight;
+                    }
+                });
+            });
+
+            const prListEl = document.getElementById('pr-list');
+            const prEntries = Object.entries(prMap).filter(([_, w]) => w > 0).sort((a, b) => b[1] - a[1]);
+
+            if (prEntries.length === 0) {
+                prListEl.innerHTML = '<span class="text-xs text-neutral-500">أضف تمارينك بأوزانها لعرض أقوى أرقامك القياسية هنا.</span>';
+            } else {
+                prListEl.innerHTML = prEntries.map(([name, weight]) => `
+                    <div class="shrink-0 bg-black border border-neutral-800 hover:border-red-600/50 px-3.5 py-2 rounded-xl flex items-center gap-2.5 transition">
+                        <div class="w-7 h-7 rounded-lg bg-red-600/15 text-red-500 flex items-center justify-center">
+                            <i data-lucide="trophy" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-white">${name}</div>
+                            <div class="text-xs font-extrabold text-red-500">${weight} كجم</div>
+                        </div>
+                    </div>
+                `).join('');
+                lucide.createIcons();
+            }
+
+            const selectEl = document.getElementById('chart-exercise-select');
+            const currentSelection = selectEl.value;
+            const exerciseNames = Object.keys(prMap);
+
+            selectEl.innerHTML = exerciseNames.length === 0 
+                ? '<option value="">لا توجد تمارين بعد</option>'
+                : exerciseNames.map(name => `<option value="${name}">${name}</option>`).join('');
+
+            if (exerciseNames.includes(currentSelection)) {
+                selectEl.value = currentSelection;
+            } else if (exerciseNames.length > 0) {
+                selectEl.value = exerciseNames[0];
+            }
+
+            updateExerciseChart();
+        }
+
+        function updateBodyWeightChart() {
+            const ctx = document.getElementById('bodyWeightChart').getContext('2d');
+            const labels = appData.weightHistory.map(item => item.date);
+            const dataPoints = appData.weightHistory.map(item => item.weight);
+
+            if (bodyWeightChartInstance) {
+                bodyWeightChartInstance.destroy();
+            }
+
+            bodyWeightChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels.length ? labels : ['لا توجد بيانات'],
+                    datasets: [{
+                        label: 'وزن الجسم (كجم)',
+                        data: dataPoints.length ? dataPoints : [0],
+                        borderColor: '#ffffff',
+                        backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#dc2626',
+                        pointBorderColor: '#ffffff',
+                        pointRadius: 5,
+                        fill: true,
+                        tension: 0.35
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.08)' },
+                            ticks: { color: '#d4d4d4', font: { family: 'Cairo' } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.08)' },
+                            ticks: { color: '#d4d4d4', font: { family: 'Cairo' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateExerciseChart() {
+            const ctx = document.getElementById('exerciseProgressChart').getContext('2d');
+            const selectedExercise = document.getElementById('chart-exercise-select').value;
+
+            const labels = [];
+            const weights = [];
+
+            if (selectedExercise) {
+                const sortedDates = Object.keys(appData.workouts).sort();
+                sortedDates.forEach(date => {
+                    const matches = appData.workouts[date].filter(ex => ex.name.trim() === selectedExercise);
+                    if (matches.length > 0) {
+                        const maxDayWeight = Math.max(...matches.map(m => m.weight));
+                        labels.push(date);
+                        weights.push(maxDayWeight);
+                    }
+                });
+            }
+
+            if (exerciseChartInstance) {
+                exerciseChartInstance.destroy();
+            }
+
+            exerciseChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels.length ? labels : ['اختر تمريناً'],
+                    datasets: [{
+                        label: 'الوزن المرفوع (كجم)',
+                        data: weights.length ? weights : [0],
+                        borderColor: '#dc2626',
+                        backgroundColor: 'rgba(220, 38, 38, 0.18)',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderColor: '#dc2626',
+                        pointRadius: 5,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.08)' },
+                            ticks: { color: '#d4d4d4', font: { family: 'Cairo' } }
+                        },
+                        y: {
+                            beginAtZero: false,
+                            grid: { color: 'rgba(255, 255, 255, 0.08)' },
+                            ticks: { color: '#d4d4d4', font: { family: 'Cairo' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ==========================================
+        // 6. التصدير، الاستيراد، والبيانات التجريبية
+        // ==========================================
+
+        function exportData() {
+            const dataStr = JSON.stringify(appData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `fittrack_backup_${getTodayStr()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('تم تصدير ملف النسخة الاحتياطية بنجاح');
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported && typeof imported === 'object') {
+                        appData = {
+                            height: imported.height || DEFAULT_HEIGHT,
+                            weightHistory: Array.isArray(imported.weightHistory) ? imported.weightHistory : [],
+                            dailyLogs: imported.dailyLogs || {},
+                            workouts: imported.workouts || {}
+                        };
+                        saveToStorage();
+                        refreshAllUI();
+                        showToast('تم استيراد البيانات بنجاح!');
+                    } else {
+                        throw new Error('صيغة غير صالحة');
+                    }
+                } catch (err) {
+                    showToast('فشل استيراد الملف، تأكد من أنه ملف JSON صالح', 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function loadDemoData() {
+            const today = new Date();
+            const formatOffsetDate = (offsetDays) => {
+                const d = new Date(today);
+                d.setDate(d.getDate() + offsetDays);
+                return formatDateObj(d);
+            };
+
+            const workoutsData = {};
+            const weightData = [];
+            const logsData = {};
+
+            const weeksOffsets = [-21, -14, -7, 0];
+            weeksOffsets.forEach((weekStart, wIdx) => {
+                const progressBonus = wIdx * 5;
+                const smallBonus = wIdx * 2.5;
+
+                const wDate = formatOffsetDate(weekStart);
+                const currentW = +(76.5 - (wIdx * 0.8)).toFixed(1);
+                weightData.push({ date: wDate, weight: currentW });
+
+                const chestDate = formatOffsetDate(weekStart - 3);
+                workoutsData[chestDate] = [
+                    { id: `${wIdx}11`, name: 'بنش برس مستوي بار', muscle: 'صدر', sets: 4, reps: 10, weight: 60 + progressBonus, completed: true },
+                    { id: `${wIdx}12`, name: 'تجميع دمبل عالي', muscle: 'صدر', sets: 4, reps: 10, weight: 22.5 + smallBonus, completed: true },
+                    { id: `${wIdx}13`, name: 'تفتيح كابل (Cable Crossover)', muscle: 'صدر', sets: 3, reps: 12, weight: 15 + smallBonus, completed: true },
+                    { id: `${wIdx}14`, name: 'تراي بوش داون حبل (Tricep Rope Pushdown)', muscle: 'ذراعين', sets: 4, reps: 12, weight: 25 + smallBonus, completed: true }
+                ];
+
+                const backDate = formatOffsetDate(weekStart - 2);
+                workoutsData[backDate] = [
+                    { id: `${wIdx}21`, name: 'سحب أمامي واسع (Lat Pulldown)', muscle: 'ظهر', sets: 4, reps: 10, weight: 55 + progressBonus, completed: true },
+                    { id: `${wIdx}22`, name: 'تجديف بار (Barbell Row)', muscle: 'ظهر', sets: 4, reps: 8, weight: 50 + progressBonus, completed: true },
+                    { id: `${wIdx}23`, name: 'سحب أرضي ضيق (Seated Cable Row)', muscle: 'ظهر', sets: 3, reps: 12, weight: 50 + smallBonus, completed: true },
+                    { id: `${wIdx}24`, name: 'تبادل بار (Barbell Curl)', muscle: 'ذراعين', sets: 4, reps: 10, weight: 25 + smallBonus, completed: true }
+                ];
+
+                const legsDate = formatOffsetDate(weekStart);
+                workoutsData[legsDate] = [
+                    { id: `${wIdx}31`, name: 'سكوات بار (Barbell Squat)', muscle: 'أرجل', sets: 4, reps: 8, weight: 80 + progressBonus, completed: true },
+                    { id: `${wIdx}32`, name: 'دفع أرجل جهاز (Leg Press)', muscle: 'أرجل', sets: 4, reps: 12, weight: 140 + (progressBonus * 2), completed: true },
+                    { id: `${wIdx}33`, name: 'ضغط كتف دمبل', muscle: 'أكتاف', sets: 4, reps: 10, weight: 20 + smallBonus, completed: wIdx < 3 },
+                    { id: `${wIdx}34`, name: 'رفرفة جانبية دمبل', muscle: 'أكتاف', sets: 4, reps: 15, weight: 10 + (wIdx * 1.5), completed: wIdx < 3 },
+                    { id: `${wIdx}35`, name: 'كرانش كابل', muscle: 'بطن', sets: 3, reps: 15, weight: 30 + smallBonus, completed: wIdx < 3 }
+                ];
+            });
+
+            Object.keys(workoutsData).forEach(d => {
+                logsData[d] = {
+                    date: d,
+                    height: DEFAULT_HEIGHT,
+                    workoutCount: workoutsData[d].length,
+                    updatedAt: new Date().toISOString()
+                };
+            });
+
+            appData = {
+                height: DEFAULT_HEIGHT,
+                weightHistory: weightData.sort((a, b) => a.date.localeCompare(b.date)),
+                dailyLogs: logsData,
+                workouts: workoutsData
+            };
+
+            saveToStorage();
+            document.getElementById('workout-date').value = getTodayStr();
+            refreshAllUI();
+            showToast(`تم تحميل بيانات شهر كامل بالطول الثابت (${DEFAULT_HEIGHT} سم)!`);
+        }
+
+        function refreshAllUI() {
+            updateBodyMetricsUI();
+            renderDaysRibbon();
+            renderQuickExercisePills();
+            renderWorkouts();
+            updatePRsAndCharts();
+            updateBodyWeightChart();
+            updateAllAnalytics();
+        }
+
+        // تهيئة التطبيق عند اكتمال تحميل الصفحة
+        window.addEventListener('DOMContentLoaded', () => {
+            loadFromStorage();
+            initExerciseLibrary();
+            document.getElementById('workout-date').value = getTodayStr();
+            refreshAllUI();
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>
